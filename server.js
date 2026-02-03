@@ -1,10 +1,9 @@
-// server.js - The Brain of HearMeOut
-
+// server.js - The "Uber" Logic Brain
 const express = require('express');
 const cors = require('cors');
 const { initializeApp } = require('firebase/app');
 const { getDatabase, ref, get, update } = require('firebase/database');
-const twilio = require('twilio'); // <--- This is now active!
+const twilio = require('twilio'); 
 
 const app = express();
 app.use(cors());
@@ -18,56 +17,78 @@ const firebaseConfig = {
   projectId: "hearmeout-8595b",
   storageBucket: "hearmeout-8595b.firebasestorage.app",
   messagingSenderId: "820646656093",
-  appId: "1:820646656093:web:c68b24bc29dbedb257f5b4",
-  measurementId: "G-CRB8XBK09X"
+  appId: "1:820646656093:web:c68b24bc29dbedb257f5b4"
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getDatabase(firebaseApp);
 
-// 2. YOUR TWILIO CONFIG (PASTE YOUR KEYS INSIDE THE QUOTES BELOW)
-// ... top of file ...
-
-// 2. YOUR TWILIO CONFIG (Use Environment Variables)
+// 2. TWILIO CONFIG (Securely loaded from Render)
 const TWILIO_SID = process.env.TWILIO_SID; 
 const TWILIO_TOKEN = process.env.TWILIO_TOKEN; 
 const TWILIO_PHONE = process.env.TWILIO_PHONE;
-
 const client = new twilio(TWILIO_SID, TWILIO_TOKEN);
 
-// ... rest of file ...
-// Route: Connect Call
+// --- THE SMART ROUTE ---
 app.post('/connect-call', async (req, res) => {
-    const { userId, userPhoneNumber } = req.body; 
-    // Note: In a real app, userPhoneNumber comes from the database, not the frontend request for security.
-    
-    console.log(`📞 New Call Request from: ${userId}`);
+    const { userId, userPhoneNumber } = req.body;
+    console.log(`📞 Call Request from: ${userId} (${userPhoneNumber})`);
 
     try {
-        // A. Check Wallet
-        const walletRef = ref(db, 'users/' + userId + '/wallet');
-        const snapshot = await get(walletRef);
-        const balance = snapshot.val();
+        // A. Check Wallet Balance
+        const userWalletRef = ref(db, 'users/' + userId + '/wallet');
+        const walletSnap = await get(userWalletRef);
+        const balance = walletSnap.val();
 
         if (balance < 4) {
-            return res.json({ success: false, message: "Low Balance" });
+            return res.json({ success: false, message: "Low Balance. Please recharge." });
         }
 
-        // B. Connect the Call via Twilio
-        // IMPORTANT: On a Free Trial, you can ONLY call your own verified number.
-        // For this demo, we will call YOU (the admin) as the "Listener".
+        // B. FIND AN AVAILABLE LISTENER (The "Uber" Logic)
+        const listenersRef = ref(db, 'listeners');
+        const listenersSnap = await get(listenersRef);
         
+        if (!listenersSnap.exists()) {
+            return res.json({ success: false, message: "No listeners system found." });
+        }
+
+        const listeners = listenersSnap.val();
+        let selectedListener = null;
+
+        // Loop through all listeners to find one who is "available"
+        for (const [id, data] of Object.entries(listeners)) {
+            if (data.status === 'available') {
+                selectedListener = { id, ...data };
+                break; // Stop looking, we found one!
+            }
+        }
+
+        if (!selectedListener) {
+            return res.json({ success: false, message: "All listeners are currently busy. Try again in 2 mins." });
+        }
+
+        console.log(`✅ Match Found! Connecting to listener: ${selectedListener.name}`);
+
+        // C. Connect the Call via Twilio
+        // Note: In Free Trial, we can only call Verified Numbers. 
+        // Ensure BOTH user and listener numbers are verified in Twilio Console.
         const call = await client.calls.create({
-            url: 'https://handler.twilio.com/twiml/EH2c099532fa0c1154f7983dbaca746520', // This plays a demo voice message
-            to: userPhoneNumber, // The number to call (User)
-            from: TWILIO_PHONE   // Your Twilio number
+            twiml: `<Response>
+                        <Say>Connecting you to ${selectedListener.name}, your empathetic listener.</Say>
+                        <Dial>${selectedListener.phone}</Dial>
+                    </Response>`,
+            to: userPhoneNumber, 
+            from: TWILIO_PHONE   
         });
 
-        console.log("✅ Call started! SID:", call.sid);
+        console.log("✅ Call Bridged! SID:", call.sid);
+
+        // D. Mark Listener as "Busy" (Optional - prevents double booking)
+        // await update(ref(db, 'listeners/' + selectedListener.id), { status: 'busy' });
 
         return res.json({ 
             success: true, 
-            message: "Calling you now..." 
+            message: `Connecting you to ${selectedListener.name}...` 
         });
 
     } catch (error) {
@@ -76,6 +97,7 @@ app.post('/connect-call', async (req, res) => {
     }
 });
 
-app.listen(3000, () => {
-    console.log("🚀 HearMeOut Server is running on http://localhost:3000");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
 });
