@@ -26,12 +26,16 @@ const firebaseApp = initializeApp(firebaseConfig);
 const db = getDatabase(firebaseApp);
 
 // 2. YOUR TWILIO CONFIG (PASTE YOUR KEYS INSIDE THE QUOTES BELOW)
-const TWILIO_SID = "AC268276109bba3bf9c158508e9848cb6f";     // <--- Paste Account SID here (Keep the quotes!)
-const TWILIO_TOKEN = "6233016e6dd63d68f4019df74d6273bd";     // <--- Paste Auth Token here
-const TWILIO_PHONE = "+19787055809";   // <--- Paste Twilio Number here
+// ... top of file ...
+
+// 2. YOUR TWILIO CONFIG (Use Environment Variables)
+const TWILIO_SID = process.env.TWILIO_SID; 
+const TWILIO_TOKEN = process.env.TWILIO_TOKEN; 
+const TWILIO_PHONE = process.env.TWILIO_PHONE;
 
 const client = new twilio(TWILIO_SID, TWILIO_TOKEN);
 
+// ... rest of file ...
 // Route: Connect Call
 app.post('/connect-call', async (req, res) => {
     const { userId, userPhoneNumber } = req.body; 
