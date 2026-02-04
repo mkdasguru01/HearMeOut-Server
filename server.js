@@ -16,7 +16,7 @@ const TWILIO_PHONE = process.env.TWILIO_PHONE;
 // 2. THE LISTENER'S PHONE (Your 2nd device)
 // ⚠️ REPLACE THIS with the number you will answer as the 'Listener'
 // Format must be E.164 (e.g., +919876543210)
-const FIXED_LISTENER_NUMBER = "+919876543210"; 
+const FIXED_LISTENER_NUMBER = "+919140164383"; 
 
 const client = new twilio(TWILIO_SID, TWILIO_TOKEN);
 
